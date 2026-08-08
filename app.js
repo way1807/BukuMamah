@@ -150,6 +150,20 @@ const DOM = {
   get quickAddressChips() { return document.getElementById('quick-address-chips'); },
   get quickDescChips() { return document.getElementById('quick-desc-chips'); },
 
+  // Daily Recap Getters
+  get statTodayCash() { return document.getElementById('stat-today-cash'); },
+  get statTodaySubtext() { return document.getElementById('stat-today-subtext'); },
+  get btnOpenDailyRecap() { return document.getElementById('btn-open-daily-recap'); },
+  get dailyRecapModal() { return document.getElementById('daily-recap-modal'); },
+  get dailyRecapModalOverlay() { return document.getElementById('daily-recap-modal-overlay'); },
+  get btnCloseDailyRecap() { return document.getElementById('btn-close-daily-recap'); },
+  get btnCancelDailyRecap() { return document.getElementById('btn-cancel-daily-recap'); },
+  get recapDatePicker() { return document.getElementById('recap-date-picker'); },
+  get recapTotalReceived() { return document.getElementById('recap-total-received'); },
+  get recapTotalBorrowed() { return document.getElementById('recap-total-borrowed'); },
+  get recapTxCount() { return document.getElementById('recap-tx-count'); },
+  get recapHistoryList() { return document.getElementById('recap-history-list'); },
+
   get toastContainer() { return document.getElementById('toast-container'); }
 };
 
@@ -617,6 +631,30 @@ function renderStats() {
   DOM.statTotalTerbayar.textContent = formatIDR(stats.totalTerbayar);
   DOM.statTotalCustomers.textContent = `${customers.length} Orang`;
   DOM.statDebtRatio.textContent = `${stats.activeDebtCustomersCount} Berutang, ${stats.paidOffCustomersCount} Lunas`;
+
+  // Calculate Today's Income (Uang Masuk Hari Ini)
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let todayReceived = 0;
+  let todayPayersCount = 0;
+
+  customers.forEach(c => {
+    let cPaidToday = false;
+    (c.transactions || []).forEach(t => {
+      const txDateStr = (t.date || '').slice(0, 10);
+      if (txDateStr === todayStr && t.type === 'bayar') {
+        todayReceived += t.amount || 0;
+        cPaidToday = true;
+      }
+    });
+    if (cPaidToday) todayPayersCount++;
+  });
+
+  if (DOM.statTodayCash) DOM.statTodayCash.textContent = formatIDR(todayReceived);
+  if (DOM.statTodaySubtext) {
+    DOM.statTodaySubtext.textContent = todayPayersCount > 0 
+      ? `${todayPayersCount} Nasabah bayar hari ini 🔍`
+      : 'Klik untuk lihat rekap 🔍';
+  }
 }
 
 // Update Location Filter Dropdown Options
@@ -925,23 +963,77 @@ function renderQuickChips() {
     }
   }
 
-  // 2. Render Transaction Description Chips
-  if (DOM.quickDescChips) {
-    DOM.quickDescChips.innerHTML = '';
-    PRESET_DESCRIPTIONS.forEach(desc => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'chip-btn';
-      btn.textContent = desc;
-      btn.addEventListener('click', () => {
-        if (DOM.txDesc) {
-          DOM.txDesc.value = desc;
-          DOM.txDesc.focus();
+// --- Daily Recap Modal Controller ---
+function renderDailyRecap(dateStr) {
+  if (!dateStr) dateStr = new Date().toISOString().slice(0, 10);
+  if (DOM.recapDatePicker) DOM.recapDatePicker.value = dateStr;
+
+  let totalReceived = 0;
+  let totalBorrowed = 0;
+  let matchingTxList = [];
+
+  customers.forEach(customer => {
+    (customer.transactions || []).forEach(tx => {
+      const txDateStr = (tx.date || '').slice(0, 10);
+      if (txDateStr === dateStr) {
+        if (tx.type === 'bayar') {
+          totalReceived += tx.amount || 0;
+        } else if (tx.type === 'tambah') {
+          totalBorrowed += tx.amount || 0;
         }
-      });
-      DOM.quickDescChips.appendChild(btn);
+        matchingTxList.push({
+          ...tx,
+          customerName: customer.name,
+          customerAddress: customer.address
+        });
+      }
+    });
+  });
+
+  if (DOM.recapTotalReceived) DOM.recapTotalReceived.textContent = formatIDR(totalReceived);
+  if (DOM.recapTotalBorrowed) DOM.recapTotalBorrowed.textContent = formatIDR(totalBorrowed);
+  if (DOM.recapTxCount) DOM.recapTxCount.textContent = `${matchingTxList.length} Catatan`;
+
+  if (DOM.recapHistoryList) {
+    DOM.recapHistoryList.innerHTML = '';
+    if (matchingTxList.length === 0) {
+      DOM.recapHistoryList.innerHTML = `<p class="text-muted text-center pad-y-md">Tidak ada transaksi pada tanggal ini.</p>`;
+      return;
+    }
+
+    matchingTxList.forEach(tx => {
+      const isBorrow = tx.type === 'tambah';
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.innerHTML = `
+        <div class="history-item-left">
+          <span class="history-type-badge ${isBorrow ? 'borrow' : 'pay'}">
+            ${isBorrow ? 'Utang' : 'Bayar'}
+          </span>
+          <div class="history-details">
+            <span class="history-desc font-semibold">${tx.customerName}</span>
+            <span class="history-desc text-muted">${tx.description} ${tx.customerAddress ? `(${tx.customerAddress})` : ''}</span>
+          </div>
+        </div>
+        <div class="history-item-right">
+          <span class="history-item-value ${isBorrow ? 'text-danger' : 'text-success'}">
+            ${isBorrow ? '+' : '-'} ${formatIDR(tx.amount)}
+          </span>
+        </div>
+      `;
+      DOM.recapHistoryList.appendChild(div);
     });
   }
+}
+
+function openDailyRecapModal() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  renderDailyRecap(todayStr);
+  if (DOM.dailyRecapModal) DOM.dailyRecapModal.classList.add('active');
+}
+
+function closeDailyRecapModal() {
+  if (DOM.dailyRecapModal) DOM.dailyRecapModal.classList.remove('active');
 }
 
 // ==========================================================================
@@ -1815,6 +1907,16 @@ if (DOM.filterLocation) {
   if (DOM.syncModalOverlay) DOM.syncModalOverlay.addEventListener('click', closeSyncModal);
   if (DOM.btnSaveSyncCode) DOM.btnSaveSyncCode.addEventListener('click', saveSyncCode);
   if (DOM.btnGenerateSyncCode) DOM.btnGenerateSyncCode.addEventListener('click', generateRandomSyncCode);
+  
+  // Daily Recap Triggers
+  if (DOM.btnOpenDailyRecap) DOM.btnOpenDailyRecap.addEventListener('click', openDailyRecapModal);
+  if (DOM.btnCloseDailyRecap) DOM.btnCloseDailyRecap.addEventListener('click', closeDailyRecapModal);
+  if (DOM.btnCancelDailyRecap) DOM.btnCancelDailyRecap.addEventListener('click', closeDailyRecapModal);
+  if (DOM.dailyRecapModalOverlay) DOM.dailyRecapModalOverlay.addEventListener('click', closeDailyRecapModal);
+  if (DOM.recapDatePicker) {
+    DOM.recapDatePicker.addEventListener('change', (e) => renderDailyRecap(e.target.value));
+  }
+  
   if (DOM.btnDisconnectSync) DOM.btnDisconnectSync.addEventListener('click', disconnectSync);
   if (DOM.btnShareSyncWa) DOM.btnShareSyncWa.addEventListener('click', shareSyncCodeWA);
 

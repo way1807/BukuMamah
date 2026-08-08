@@ -181,7 +181,23 @@
           <div class="stat-info">
             <h3>Jumlah Nasabah</h3>
             <p class="stat-value" id="stat-total-customers">0 Orang</p>
-            <span class="stat-subtitle" id="stat-debt-ratio">0 Berutang, 0 Lunas</span>
+            <span class="stat-subtext" id="stat-debt-ratio">0 Berutang</span>
+          </div>
+        </div>
+
+        <div class="stat-card stat-income-today clickable-stat-card" id="btn-open-daily-recap" title="Klik untuk lihat rekap uang masuk">
+          <div class="stat-icon income">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="6" width="20" height="12" rx="2" />
+              <circle cx="12" cy="12" r="2" />
+              <path d="M6 12h.01M18 12h.01" />
+            </svg>
+          </div>
+          <div class="stat-info">
+            <h3>Uang Masuk Hari Ini 💵</h3>
+            <p class="stat-value text-success" id="stat-today-cash">Rp 0</p>
+            <span class="stat-subtext" id="stat-today-subtext">Klik untuk lihat rekap 🔍</span>
           </div>
         </div>
       </section>
@@ -846,6 +862,52 @@
       <div class="modal-footer justify-center">
         <button type="button" class="btn btn-secondary" id="btn-cancel-delete">Batal</button>
         <button type="button" class="btn btn-danger" id="btn-confirm-delete">Ya, Hapus Permanen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily Financial Recap Modal -->
+  <div class="modal" id="daily-recap-modal">
+    <div class="modal-overlay" id="daily-recap-modal-overlay"></div>
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h3>Rekap Keuangan Harian Mama 💵</h3>
+        <button class="modal-close" id="btn-close-daily-recap">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group margin-bottom-md">
+          <label for="recap-date-picker" class="form-label font-semibold">Pilih Tanggal Rekap:</label>
+          <input type="date" id="recap-date-picker" class="form-input font-semibold">
+        </div>
+
+        <div class="stats-container recap-grid">
+          <div class="stat-card stat-paid">
+            <div class="stat-info">
+              <h3>Uang Tunai Diterima (Lunas/Cicil)</h3>
+              <p class="stat-value text-success" id="recap-total-received">Rp 0</p>
+            </div>
+          </div>
+          <div class="stat-card stat-total">
+            <div class="stat-info">
+              <h3>Utang Baru Diambil</h3>
+              <p class="stat-value text-danger" id="recap-total-borrowed">Rp 0</p>
+            </div>
+          </div>
+          <div class="stat-card stat-customers">
+            <div class="stat-info">
+              <h3>Total Catatan Transaksi</h3>
+              <p class="stat-value" id="recap-tx-count">0 Transaksi</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="margin-top-md">
+          <h4 class="margin-bottom-sm">Rincian Transaksi pada Tanggal Ini:</h4>
+          <div class="history-list" id="recap-history-list"></div>
+        </div>
+      </div>
+      <div class="modal-footer justify-end">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-daily-recap">Tutup</button>
       </div>
     </div>
   </div>
