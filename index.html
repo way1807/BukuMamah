@@ -604,29 +604,24 @@
           <div class="form-group">
             <label for="customer-name" class="form-label">Nama Lengkap Nasabah</label>
             <input type="text" id="customer-name" placeholder="Contoh: Pak Budi, Ibu Ani" required class="form-input">
-            <div class="quick-chips-wrapper margin-top-xs">
-              <span class="chips-label">💡 Contoh / Riwayat Nama:</span>
-              <div class="quick-chips-container" id="quick-name-chips"></div>
-            </div>
           </div>
 
           <div class="form-group">
-            <label for="customer-phone" class="form-label">Nomor WhatsApp</label>
+            <label for="customer-phone" class="form-label">Nomor WhatsApp (Opsional)</label>
             <div class="input-phone-wrapper">
               <span class="phone-prefix">+62</span>
               <input type="tel" id="customer-phone" placeholder="8123456789" class="form-input" pattern="[0-9]{8,15}"
                 title="Masukkan nomor WhatsApp yang valid tanpa angka 0 di depan (contoh: 8123456789)">
             </div>
-            <span class="form-helper">Nomor ini digunakan untuk mengirim pesan pengingat tagihan secara otomatis.
-              Masukkan nomor saja tanpa '0' di depan.</span>
+            <span class="form-helper">Boleh dikosongkan jika tidak ada nomor WhatsApp.</span>
           </div>
 
           <div class="form-group">
-            <label for="customer-address" class="form-label">Alamat Lengkap</label>
-            <input type="text" id="customer-address" placeholder="Contoh: Jl. Mawar No. 5, RT 02/03, Blok C" required
+            <label for="customer-address" class="form-label">Alamat / Lokasi</label>
+            <input type="text" id="customer-address" placeholder="Contoh: BJM, RT 02, atau Nama Kampung" required
               class="form-input">
-            <div class="quick-chips-wrapper margin-top-xs">
-              <span class="chips-label">💡 Contoh / Riwayat Lokasi & Alamat:</span>
+            <div class="quick-chips-wrapper margin-top-xs" id="quick-address-wrapper" style="display: none;">
+              <span class="chips-label">📍 Pilih Lokasi Tersimpan:</span>
               <div class="quick-chips-container" id="quick-address-chips"></div>
             </div>
           </div>
