@@ -968,7 +968,7 @@ function renderQuickChips() {
           .map(c => (c.address || '').trim())
           .filter(Boolean)
       )
-    ).slice(0, 10); // Take up to 10 unique saved locations
+    ).slice(0, 6); // Take up to 6 most recent unique saved locations
 
     if (existingAddresses.length > 0) {
       DOM.quickAddressWrapper.style.display = 'flex';

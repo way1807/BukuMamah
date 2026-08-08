@@ -2040,8 +2040,21 @@ body.dark-theme .csv-table tr:hover {
 
 .quick-chips-container {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.quick-chips-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.quick-chips-container::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
 }
 
 .chip-btn {
@@ -2055,6 +2068,8 @@ body.dark-theme .csv-table tr:hover {
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .chip-btn:hover {
