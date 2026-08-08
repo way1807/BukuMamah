@@ -332,10 +332,12 @@ function getDashboardStats() {
 }
 
 // ==========================================================================
-// REAL-TIME CLOUD SYNC ENGINE (RESTFUL-API.DEV CLOUD STORE)
+// REAL-TIME CLOUD SYNC ENGINE (JSONBLOB CLOUD STORE + MASTER REGISTRY)
 // ==========================================================================
+const MASTER_REGISTRY_URL = 'https://jsonblob.com/api/jsonBlob/019fe280-770d-7b86-a93e-dc2f4fe43000';
+
 let currentSyncCode = null;
-let currentSyncObjectId = null;
+let currentSyncBlobUrl = null;
 let syncPollingTimer = null;
 let isSyncingToCloud = false;
 
@@ -363,45 +365,83 @@ function updateCloudStatusUI() {
   }
 }
 
-async function ensureCloudObjectId() {
-  if (currentSyncObjectId) return currentSyncObjectId;
+async function resolveCloudBlobUrl() {
+  if (currentSyncBlobUrl) return currentSyncBlobUrl;
   if (!currentSyncCode) return null;
 
   const cleanCode = sanitizeSyncCode(currentSyncCode);
-  const storeName = `BUKU_UTANG_MAMA_${cleanCode}`;
 
-  // Check saved object ID for this code
-  const savedObjId = localStorage.getItem(`bukuutang_mama_obj_id_${cleanCode}`);
-  if (savedObjId) {
-    currentSyncObjectId = savedObjId;
-    return currentSyncObjectId;
+  // 1. Check local storage cache
+  const cachedBlobUrl = localStorage.getItem(`bukuutang_mama_blob_${cleanCode}`);
+  if (cachedBlobUrl) {
+    currentSyncBlobUrl = cachedBlobUrl;
+    return currentSyncBlobUrl;
   }
 
-  // Create a new cloud store object
+  // 2. Fetch Master Registry
   try {
-    const payload = {
-      name: storeName,
-      data: {
-        updatedAt: Date.now(),
-        customers: customers
-      }
-    };
-    const res = await fetch('https://api.restful-api.dev/objects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    const res = await fetch(MASTER_REGISTRY_URL);
     if (res.ok) {
-      const json = await res.json();
-      if (json && json.id) {
-        currentSyncObjectId = json.id;
-        localStorage.setItem(`bukuutang_mama_obj_id_${cleanCode}`, json.id);
-        return currentSyncObjectId;
+      const registry = await res.json();
+      if (registry && registry[cleanCode]) {
+        currentSyncBlobUrl = registry[cleanCode];
+        localStorage.setItem(`bukuutang_mama_blob_${cleanCode}`, currentSyncBlobUrl);
+        return currentSyncBlobUrl;
       }
     }
   } catch (err) {
-    console.warn('Failed to register cloud object:', err);
+    console.warn('Registry fetch error:', err);
   }
+
+  // 3. Create new Blob for this code if not found in registry
+  try {
+    const initialPayload = {
+      updatedAt: Date.now(),
+      customers: customers
+    };
+    const createRes = await fetch('https://jsonblob.com/api/jsonBlob', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(initialPayload)
+    });
+
+    if (createRes.ok) {
+      const locationHeader = createRes.headers.get('Location');
+      if (locationHeader) {
+        let fullBlobUrl = locationHeader;
+        if (locationHeader.startsWith('/')) {
+          fullBlobUrl = `https://jsonblob.com${locationHeader}`;
+        }
+        currentSyncBlobUrl = fullBlobUrl;
+        localStorage.setItem(`bukuutang_mama_blob_${cleanCode}`, currentSyncBlobUrl);
+
+        // Update Master Registry asynchronously
+        try {
+          const regRes = await fetch(MASTER_REGISTRY_URL);
+          let currentRegistry = {};
+          if (regRes.ok) {
+            currentRegistry = await regRes.json();
+          }
+          currentRegistry[cleanCode] = currentSyncBlobUrl;
+          await fetch(MASTER_REGISTRY_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentRegistry)
+          });
+        } catch (e) {
+          console.warn('Master registry update error:', e);
+        }
+
+        return currentSyncBlobUrl;
+      }
+    }
+  } catch (err) {
+    console.warn('Create blob error:', err);
+  }
+
   return null;
 }
 
@@ -409,34 +449,28 @@ async function pushToCloud() {
   if (!currentSyncCode || isSyncingToCloud) return;
   isSyncingToCloud = true;
 
-  const objId = await ensureCloudObjectId();
-  if (!objId) {
+  const blobUrl = await resolveCloudBlobUrl();
+  if (!blobUrl) {
     isSyncingToCloud = false;
     return;
   }
 
-  const cleanCode = sanitizeSyncCode(currentSyncCode);
-  const storeName = `BUKU_UTANG_MAMA_${cleanCode}`;
   const timestamp = Date.now();
-
   localStorage.setItem('bukuutang_mama_last_update', timestamp.toString());
 
   const payload = {
-    name: storeName,
-    data: {
-      updatedAt: timestamp,
-      customers: customers
-    }
+    updatedAt: timestamp,
+    customers: customers
   };
 
   try {
-    await fetch(`https://api.restful-api.dev/objects/${objId}`, {
+    await fetch(blobUrl, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
   } catch (err) {
-    console.warn('Cloud sync push warning:', err);
+    console.warn('Cloud push error:', err);
   } finally {
     isSyncingToCloud = false;
   }
@@ -445,21 +479,21 @@ async function pushToCloud() {
 async function fetchFromCloud(silent = false) {
   if (!currentSyncCode) return;
 
-  const objId = await ensureCloudObjectId();
-  if (!objId) return;
+  const blobUrl = await resolveCloudBlobUrl();
+  if (!blobUrl) return;
 
   try {
-    const res = await fetch(`https://api.restful-api.dev/objects/${objId}`);
+    const res = await fetch(blobUrl);
     if (!res.ok) return;
     const json = await res.json();
 
-    if (json && json.data && Array.isArray(json.data.customers) && json.data.updatedAt) {
+    if (json && Array.isArray(json.customers) && json.updatedAt) {
       const localTimestamp = parseInt(localStorage.getItem('bukuutang_mama_last_update') || '0', 10);
 
-      if (json.data.updatedAt > localTimestamp) {
-        customers = json.data.customers;
+      if (json.updatedAt > localTimestamp) {
+        customers = json.customers;
         localStorage.setItem('bukuutang_mama_customers_active', JSON.stringify(customers));
-        localStorage.setItem('bukuutang_mama_last_update', json.data.updatedAt.toString());
+        localStorage.setItem('bukuutang_mama_last_update', json.updatedAt.toString());
 
         if (customers.length > 0 && !selectedCustomerId) {
           selectedCustomerId = customers[0].id;
@@ -479,23 +513,23 @@ async function fetchFromCloud(silent = false) {
 function startCloudRealtimeSync() {
   if (syncPollingTimer) clearInterval(syncPollingTimer);
   fetchFromCloud(false);
-  // Poll every 3 seconds for instant real-time synchronization between devices
+  // Poll every 3 seconds for instant 2-way real-time sync between devices
   syncPollingTimer = setInterval(() => fetchFromCloud(true), 3000);
 }
 
 function initCloudSync() {
   const urlParams = new URLSearchParams(window.location.search);
   const syncParam = urlParams.get('sync');
-  const syncObjIdParam = urlParams.get('id');
+  const blobParam = urlParams.get('blob');
 
   if (syncParam) {
     const cleanCode = sanitizeSyncCode(syncParam);
     if (cleanCode) {
       currentSyncCode = cleanCode;
       localStorage.setItem('bukuutang_mama_sync_code', cleanCode);
-      if (syncObjIdParam) {
-        currentSyncObjectId = syncObjIdParam;
-        localStorage.setItem(`bukuutang_mama_obj_id_${cleanCode}`, syncObjIdParam);
+      if (blobParam) {
+        currentSyncBlobUrl = decodeURIComponent(blobParam);
+        localStorage.setItem(`bukuutang_mama_blob_${cleanCode}`, currentSyncBlobUrl);
       }
       showToast(`Tersambung ke Cloud Kode: ${cleanCode}!`);
     }
@@ -503,7 +537,7 @@ function initCloudSync() {
     const savedCode = localStorage.getItem('bukuutang_mama_sync_code');
     if (savedCode) {
       currentSyncCode = sanitizeSyncCode(savedCode);
-      currentSyncObjectId = localStorage.getItem(`bukuutang_mama_obj_id_${currentSyncCode}`);
+      currentSyncBlobUrl = localStorage.getItem(`bukuutang_mama_blob_${currentSyncCode}`);
     }
   }
 
@@ -534,9 +568,9 @@ function saveSyncCode() {
 
   if (code !== currentSyncCode) {
     currentSyncCode = code;
-    currentSyncObjectId = null; // reset object id for new code
+    currentSyncBlobUrl = null;
   }
-  
+
   localStorage.setItem('bukuutang_mama_sync_code', code);
   updateCloudStatusUI();
   startCloudRealtimeSync();
@@ -547,10 +581,10 @@ function saveSyncCode() {
 
 function disconnectSync() {
   if (currentSyncCode) {
-    localStorage.removeItem(`bukuutang_mama_obj_id_${currentSyncCode}`);
+    localStorage.removeItem(`bukuutang_mama_blob_${currentSyncCode}`);
   }
   currentSyncCode = null;
-  currentSyncObjectId = null;
+  currentSyncBlobUrl = null;
   localStorage.removeItem('bukuutang_mama_sync_code');
   if (syncPollingTimer) clearInterval(syncPollingTimer);
   updateCloudStatusUI();
@@ -568,8 +602,8 @@ function generateRandomSyncCode() {
 function shareSyncCodeWA() {
   if (!currentSyncCode) return;
   const baseUrl = window.location.origin + window.location.pathname;
-  const objId = currentSyncObjectId || '';
-  const link = `${baseUrl}?sync=${currentSyncCode}${objId ? '&id=' + objId : ''}`;
+  const blobUrl = currentSyncBlobUrl ? encodeURIComponent(currentSyncBlobUrl) : '';
+  const link = `${baseUrl}?sync=${currentSyncCode}${blobUrl ? '&blob=' + blobUrl : ''}`;
 
   const msg = `Halo Mama! 🙏 Ini link otomatis untuk menyambungkan aplikasi *BukuUtang Mama* secara Real-Time:\n\n👉 ${link}\n\nKode Sync: *${currentSyncCode}*\n\nBuka link di atas di HP Mama, maka seluruh pembukuan utang-piutang langsung tersambung otomatis dengan HP anak! 😊`;
 
