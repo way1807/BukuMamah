@@ -32,6 +32,7 @@ const DOM = {
   // Customer Directory
   get customerCountBadge() { return document.getElementById('customer-count-badge'); },
   get searchCustomer() { return document.getElementById('search-customer'); },
+  get filterLocation() { return document.getElementById('filter-location'); },
   get filterStatus() { return document.getElementById('filter-status'); },
   get sortBy() { return document.getElementById('sort-by'); },
   get customerListContainer() { return document.getElementById('customer-list-container'); },
@@ -618,9 +619,39 @@ function renderStats() {
   DOM.statDebtRatio.textContent = `${stats.activeDebtCustomersCount} Berutang, ${stats.paidOffCustomersCount} Lunas`;
 }
 
+// Update Location Filter Dropdown Options
+function updateLocationFilterOptions() {
+  if (!DOM.filterLocation) return;
+  const currentVal = DOM.filterLocation.value || 'all';
+  const addresses = Array.from(
+    new Set(
+      customers
+        .map(c => (c.address || '').trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  DOM.filterLocation.innerHTML = `<option value="all">Semua Lokasi (${customers.length})</option>`;
+  addresses.forEach(addr => {
+    const count = customers.filter(c => (c.address || '').trim().toLowerCase() === addr.toLowerCase()).length;
+    const option = document.createElement('option');
+    option.value = addr;
+    option.textContent = `📍 ${addr} (${count})`;
+    DOM.filterLocation.appendChild(option);
+  });
+
+  if (addresses.some(a => a.toLowerCase() === currentVal.toLowerCase())) {
+    DOM.filterLocation.value = currentVal;
+  } else {
+    DOM.filterLocation.value = 'all';
+  }
+}
+
 // Render Directory List (Left Column)
 function renderCustomerList() {
+  updateLocationFilterOptions();
   const searchQuery = DOM.searchCustomer.value.toLowerCase().trim();
+  const locationVal = DOM.filterLocation ? DOM.filterLocation.value : 'all';
   const filterVal = DOM.filterStatus.value;
   const sortVal = DOM.sortBy.value;
   
@@ -632,6 +663,12 @@ function renderCustomerList() {
     const addressMatch = (customer.address || '').toLowerCase().includes(searchQuery);
     if (!nameMatch && !phoneMatch && !addressMatch) return false;
     
+    // Location filter
+    if (locationVal !== 'all') {
+      const custAddr = (customer.address || '').trim().toLowerCase();
+      if (custAddr !== locationVal.toLowerCase()) return false;
+    }
+
     // Status filter
     const { balance } = getCustomerBalance(customer);
     if (filterVal === 'debt' && balance <= 0) return false;
@@ -1716,8 +1753,12 @@ function initEventListeners() {
   
   // Search and Filter Listeners
   if (DOM.searchCustomer) DOM.searchCustomer.addEventListener('input', () => renderCustomerList());
-  if (DOM.filterStatus) DOM.filterStatus.addEventListener('change', () => renderCustomerList());
-  if (DOM.sortBy) DOM.sortBy.addEventListener('change', () => renderCustomerList());
+  if (DOM.filterStatus) {
+  DOM.filterStatus.addEventListener('change', renderCustomerList);
+}
+if (DOM.filterLocation) {
+  DOM.filterLocation.addEventListener('change', renderCustomerList);
+}  if (DOM.sortBy) DOM.sortBy.addEventListener('change', () => renderCustomerList());
   
   // CRUD Triggers
   if (DOM.btnAddCustomerTop) DOM.btnAddCustomerTop.addEventListener('click', () => openCustomerModal());
