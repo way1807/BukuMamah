@@ -990,6 +990,7 @@ function renderQuickChips() {
       DOM.quickAddressWrapper.style.display = 'none';
     }
   }
+}
 
 // --- Daily Recap Modal Controller ---
 function renderDailyRecap(dateStr) {
