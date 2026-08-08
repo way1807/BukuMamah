@@ -168,6 +168,34 @@ const DOM = {
 };
 
 // ==========================================================================
+// THEME CONTROLLER (LIGHT / DARK MODE)
+// ==========================================================================
+function setTheme(theme) {
+  currentTheme = theme;
+  if (theme === 'dark') {
+    document.body.classList.remove('light-theme');
+    document.body.classList.add('dark-theme');
+    if (DOM.themeText) DOM.themeText.textContent = 'Mode Terang';
+  } else {
+    document.body.classList.remove('dark-theme');
+    document.body.classList.add('light-theme');
+    if (DOM.themeText) DOM.themeText.textContent = 'Mode Gelap';
+  }
+  localStorage.setItem('bukuutang_mama_theme', theme);
+}
+
+function initTheme() {
+  const savedTheme = localStorage.getItem('bukuutang_mama_theme') || 'light';
+  setTheme(savedTheme);
+}
+
+function toggleTheme() {
+  const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  setTheme(nextTheme);
+  showToast(`Mode ${nextTheme === 'dark' ? 'Gelap' : 'Terang'} diaktifkan.`);
+}
+
+// ==========================================================================
 // UTILITY HELPERS
 // ==========================================================================
 
@@ -1497,6 +1525,56 @@ function downloadCsvTemplate() {
 }
 
 // Export All Customer Data to Excel CSV
+// JSON Backup & Restore Functions
+function exportData() {
+  if (customers.length === 0) {
+    showToast('Tidak ada data nasabah untuk dicadangkan.', 'warning');
+    return;
+  }
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(customers, null, 2));
+  const link = document.createElement('a');
+  link.setAttribute("href", dataStr);
+  link.setAttribute("download", `Cadangan_BukuUtang_Mama_${new Date().toISOString().slice(0, 10)}.json`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showToast('Cadangan data JSON berhasil diunduh!');
+}
+
+function handleJsonImport(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (Array.isArray(imported)) {
+        customers = imported;
+        selectedCustomerId = customers.length > 0 ? customers[0].id : null;
+        saveState();
+        refreshUI();
+        showToast('Data pembukuan berhasil dipulihkan!');
+      } else {
+        showToast('Format file JSON tidak sesuai!', 'danger');
+      }
+    } catch (err) {
+      showToast('Gagal membaca file JSON!', 'danger');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function downloadCsvTemplate() {
+  const csvContent = 'data:text/csv;charset=utf-8,Nama Nasabah,Nomor WhatsApp,Alamat Lengkap,Saldo Utang (Rp),Keterangan\n"Pak Budi","8123456789","BJM",50000,"Saldo Utang Lama"\n"Ibu Ani","8571234567","RT 02",100000,"Saldo Utang Bulan Lalu"\n';
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', 'Template_Utang_Lama_BukuUtang.csv');
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showToast('Template Excel (CSV) berhasil diunduh!');
+}
+
 function exportToCsv() {
   const headers = ['Nama Nasabah', 'Nomor WhatsApp', 'Alamat Lengkap', 'Sisa Utang Aktif (Rp)', 'Total Terpinjam (Rp)', 'Total Terbayar (Rp)', 'Status'];
   let csvContent = '\uFEFF';
@@ -1842,6 +1920,15 @@ function initEventListeners() {
   // Theme Toggle listeners
   if (DOM.themeToggle) DOM.themeToggle.addEventListener('click', toggleTheme);
   if (DOM.themeToggleMobile) DOM.themeToggleMobile.addEventListener('click', toggleTheme);
+  
+  // JSON Backup / Restore listeners
+  if (DOM.btnExportData) DOM.btnExportData.addEventListener('click', exportData);
+  if (DOM.btnTriggerImport && DOM.importFileInput) {
+    DOM.btnTriggerImport.addEventListener('click', () => DOM.importFileInput.click());
+    DOM.importFileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) handleJsonImport(e.target.files[0]);
+    });
+  }
   
   // Search and Filter Listeners
   if (DOM.searchCustomer) DOM.searchCustomer.addEventListener('input', () => renderCustomerList());
