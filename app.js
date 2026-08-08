@@ -144,6 +144,11 @@ const DOM = {
   get syncCodeInput() { return document.getElementById('sync-code-input'); },
   get btnResetAllData() { return document.getElementById('btn-reset-all-data'); },
 
+  // Quick Chips Getters
+  get quickNameChips() { return document.getElementById('quick-name-chips'); },
+  get quickAddressChips() { return document.getElementById('quick-address-chips'); },
+  get quickDescChips() { return document.getElementById('quick-desc-chips'); },
+
   get toastContainer() { return document.getElementById('toast-container'); }
 };
 
@@ -845,6 +850,72 @@ function refreshUI() {
   renderStats();
   renderCustomerList();
   renderLedger();
+  renderQuickChips();
+}
+
+// --- Quick Select Chips Controller (Pilihan Cepat 1-Klik Mama) ---
+const PRESET_NAMES = ['Pak Budi', 'Ibu Ani', 'Pak RT', 'Bu Tejo', 'Mang Ujang', 'Mba Sri'];
+const PRESET_ADDRESSES = ['RT 01 / RW 02', 'RT 02 / RW 02', 'RT 03 / RW 01', 'Blok A No. 12', 'Depan Mesjid', 'Gang Mawar'];
+const PRESET_DESCRIPTIONS = ['Beli Beras 5kg', 'Minyak & Telur', 'Rokok & Kopi', 'Sembako Utang', 'Cicilan ke-1', 'Pelunasan Utang'];
+
+function renderQuickChips() {
+  // 1. Render Name Chips in Customer Modal
+  if (DOM.quickNameChips) {
+    const existingNames = customers.map(c => c.name).filter(Boolean);
+    const uniqueNames = Array.from(new Set([...PRESET_NAMES, ...existingNames])).slice(0, 8);
+    DOM.quickNameChips.innerHTML = '';
+    uniqueNames.forEach(name => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip-btn';
+      btn.textContent = name;
+      btn.addEventListener('click', () => {
+        if (DOM.customerNameInput) {
+          DOM.customerNameInput.value = name;
+          DOM.customerNameInput.focus();
+        }
+      });
+      DOM.quickNameChips.appendChild(btn);
+    });
+  }
+
+  // 2. Render Address Chips in Customer Modal
+  if (DOM.quickAddressChips) {
+    const existingAddresses = customers.map(c => c.address).filter(Boolean);
+    const uniqueAddresses = Array.from(new Set([...PRESET_ADDRESSES, ...existingAddresses])).slice(0, 8);
+    DOM.quickAddressChips.innerHTML = '';
+    uniqueAddresses.forEach(addr => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip-btn';
+      btn.textContent = addr;
+      btn.addEventListener('click', () => {
+        if (DOM.customerAddressInput) {
+          DOM.customerAddressInput.value = addr;
+          DOM.customerAddressInput.focus();
+        }
+      });
+      DOM.quickAddressChips.appendChild(btn);
+    });
+  }
+
+  // 3. Render Transaction Description Chips
+  if (DOM.quickDescChips) {
+    DOM.quickDescChips.innerHTML = '';
+    PRESET_DESCRIPTIONS.forEach(desc => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip-btn';
+      btn.textContent = desc;
+      btn.addEventListener('click', () => {
+        if (DOM.txDesc) {
+          DOM.txDesc.value = desc;
+          DOM.txDesc.focus();
+        }
+      });
+      DOM.quickDescChips.appendChild(btn);
+    });
+  }
 }
 
 // ==========================================================================
@@ -887,6 +958,7 @@ function openCustomerModal(id = null) {
   }
   
   DOM.customerModal.classList.add('active');
+  renderQuickChips();
   DOM.customerNameInput.focus();
 }
 
