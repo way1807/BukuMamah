@@ -2116,4 +2116,16 @@ body.dark-theme .csv-table tr:hover {
   margin-bottom: 1rem;
 }
 
+.btn-mark-paid {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.btn-mark-paid:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-1px);
+}
+
 

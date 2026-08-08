@@ -64,6 +64,7 @@ const DOM = {
   // History & Actions
   get transactionHistoryContainer() { return document.getElementById('transaction-history-container'); },
   get btnWATagih() { return document.getElementById('btn-wa-tagih'); },
+  get btnQuickMarkPaid() { return document.getElementById('btn-quick-mark-paid'); },
   get btnEditCustomer() { return document.getElementById('btn-edit-customer'); },
   get btnDeleteCustomer() { return document.getElementById('btn-delete-customer'); },
   
@@ -870,15 +871,19 @@ function renderLedger() {
   DOM.activeCustomerTotalBorrowed.textContent = formatIDR(borrowed);
   DOM.activeCustomerTotalPaid.textContent = formatIDR(paid);
   
-  // Disable / Enable WA reminder button based on balance and phone number availability
-  if (balance <= 0 || !customer.phone) {
-    DOM.btnWATagih.disabled = true;
-    DOM.btnWATagih.style.opacity = '0.5';
-    DOM.btnWATagih.style.pointerEvents = 'none';
+  // Disable / Enable WA reminder button & Mark Paid button based on balance
+  if (balance <= 0) {
+    if (DOM.btnWATagih) {
+      DOM.btnWATagih.disabled = true;
+      DOM.btnWATagih.style.opacity = '0.5';
+    }
+    if (DOM.btnQuickMarkPaid) DOM.btnQuickMarkPaid.style.display = 'none';
   } else {
-    DOM.btnWATagih.disabled = false;
-    DOM.btnWATagih.style.opacity = '1';
-    DOM.btnWATagih.style.pointerEvents = 'auto';
+    if (DOM.btnWATagih) {
+      DOM.btnWATagih.disabled = false;
+      DOM.btnWATagih.style.opacity = '1';
+    }
+    if (DOM.btnQuickMarkPaid) DOM.btnQuickMarkPaid.style.display = 'inline-flex';
   }
   
   // Render transactions timeline list
@@ -1063,6 +1068,34 @@ function openDailyRecapModal() {
 
 function closeDailyRecapModal() {
   if (DOM.dailyRecapModal) DOM.dailyRecapModal.classList.remove('active');
+}
+
+// 1-Click Quick Mark Paid Handler
+function handleQuickMarkPaid() {
+  if (!selectedCustomerId) return;
+  const customer = customers.find(c => c.id === selectedCustomerId);
+  if (!customer) return;
+
+  const { balance } = getCustomerBalance(customer);
+  if (balance <= 0) {
+    showToast('Nasabah ini sudah lunas!', 'warning');
+    return;
+  }
+
+  if (confirm(`Tandai sisa utang ${customer.name} (sebesar ${formatIDR(balance)}) sebagai LUNAS?`)) {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const newTx = {
+      id: generateId(),
+      type: 'bayar',
+      amount: balance,
+      description: 'Pelunasan Utang (1-Klik)',
+      date: todayStr
+    };
+    customer.transactions.push(newTx);
+    saveState();
+    refreshUI();
+    showToast(`🎉 Utang ${customer.name} sebesar ${formatIDR(balance)} telah LUNAS!`);
+  }
 }
 
 // ==========================================================================
@@ -2007,6 +2040,7 @@ if (DOM.filterLocation) {
   
   if (DOM.btnDisconnectSync) DOM.btnDisconnectSync.addEventListener('click', disconnectSync);
   if (DOM.btnShareSyncWa) DOM.btnShareSyncWa.addEventListener('click', shareSyncCodeWA);
+  if (DOM.btnQuickMarkPaid) DOM.btnQuickMarkPaid.addEventListener('click', handleQuickMarkPaid);
 
   // Reset All Data Event Listener
   if (DOM.btnResetAllData) {
